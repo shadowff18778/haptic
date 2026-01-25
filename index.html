@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>L'Essence Fluide</title>
+    <meta name="description" content="Expérience interactive liquide et sonore.">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root {
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --text-glow: 0 0 10px rgba(99, 102, 241, 0.5);
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: white;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none; /* Empêche le scroll sur mobile */
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        /* UI Layer */
+        #ui-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2rem;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            opacity: 0.8;
+            mix-blend-mode: difference;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-dot {
+            width: 0.75rem;
+            height: 0.75rem;
+            background-color: #6366f1;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #6366f1;
+            animation: pulse 2s infinite;
+        }
+
+        .brand-text {
+            font-size: 0.75rem;
+            letter-spacing: 0.3em;
+            font-weight: 300;
+            text-transform: uppercase;
+        }
+
+        .tech-stats {
+            display: none;
+            gap: 1rem;
+            font-size: 0.75rem;
+            letter-spacing: 0.1em;
+            font-weight: 100;
+        }
+
+        @media (min-width: 768px) {
+            .tech-stats { display: flex; }
+        }
+
+        /* Start Screen */
+        #start-screen {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            transition: opacity 0.7s ease, visibility 0.7s;
+            z-index: 20;
+            pointer-events: auto;
+            cursor: pointer;
+        }
+
+        #start-screen.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .start-btn {
+            text-align: center;
+            color: white;
+            transition: transform 0.3s ease;
+        }
+
+        .start-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .icon-circle {
+            width: 5rem;
+            height: 5rem;
+            margin: 0 auto 1.5rem;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 200;
+            margin: 0 0 0.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        @media (min-width: 768px) {
+            h1 { font-size: 3rem; }
+        }
+
+        .subtitle {
+            font-size: 0.875rem;
+            color: rgba(255, 255, 255, 0.5);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        /* Footer */
+        footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            transition: opacity 1s ease;
+            opacity: 0; /* Hidden initially */
+        }
+
+        footer.visible {
+            opacity: 1;
+        }
+
+        .title-group h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 0;
+            background: linear-gradient(to right, #fff, #888);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.05em;
+        }
+
+        @media (min-width: 768px) {
+            .title-group h2 { font-size: 4rem; }
+        }
+
+        .title-group p {
+            font-size: 0.875rem;
+            color: rgba(255, 255, 255, 0.4);
+            font-weight: 300;
+            max-width: 250px;
+            margin: 0.5rem 0 0;
+            line-height: 1.5;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 1rem;
+            pointer-events: auto;
+        }
+
+        .control-btn {
+            width: 3rem;
+            height: 3rem;
+            border-radius: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.8);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .control-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Flash Overlay */
+        #flash-overlay {
+            position: absolute;
+            inset: 0;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.1s ease-out;
+            z-index: 40;
+            mix-blend-mode: overlay;
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.9); }
+        }
+
+        /* Loading Spinner */
+        #loading {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s;
+        }
+        
+        .loader-bar {
+            width: 4rem;
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .loader-progress {
+            width: 50%;
+            height: 100%;
+            background: #fff;
+            animation: load 1s ease-in-out infinite;
+        }
+
+        @keyframes load {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+        }
+
+        /* Icons SVG styling */
+        .icon-svg {
+            width: 1.25rem;
+            height: 1.25rem;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loading Screen -->
+    <div id="loading">
+        <div class="loader-bar">
+            <div class="loader-progress"></div>
+        </div>
+    </div>
+
+    <!-- Flash Effect -->
+    <div id="flash-overlay"></div>
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- UI -->
+    <div id="ui-layer">
+        <header>
+            <div class="status-badge">
+                <div class="status-dot"></div>
+                <span class="brand-text">L'Essence</span>
+            </div>
+            <div class="tech-stats">
+                <span>60 FPS LOCKED</span>
+                <span>LIQUID ENGINE 2.0</span>
+            </div>
+        </header>
+
+        <!-- Start Interaction Overlay -->
+        <div id="start-screen">
+            <div class="start-btn" id="start-trigger">
+                <div class="icon-circle">
+                    <!-- Headphones Icon -->
+                    <svg class="icon-svg" style="width: 2rem; height: 2rem;" viewBox="0 0 24 24">
+                        <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
+                        <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>
+                    </svg>
+                </div>
+                <h1>Immersion Totale</h1>
+                <p class="subtitle">Touchez pour initialiser l'audio</p>
+            </div>
+        </div>
+
+        <footer id="main-footer">
+            <div class="title-group">
+                <h2>Fluide.</h2>
+                <p>Interagissez avec la matière. Ressentez la viscosité numérique.</p>
+            </div>
+
+            <div class="controls">
+                <!-- Bouton Fullscreen -->
+                <button class="control-btn" id="btn-fullscreen" title="Plein Écran">
+                    <svg class="icon-svg" viewBox="0 0 24 24">
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <polyline points="9 21 3 21 3 15"></polyline>
+                        <line x1="21" y1="3" x2="14" y2="10"></line>
+                        <line x1="3" y1="21" x2="10" y2="14"></line>
+                    </svg>
+                </button>
+                <!-- Bouton Shockwave -->
+                <button class="control-btn" id="btn-pulse" title="Onde de Choc" style="box-shadow: 0 0 15px rgba(236, 72, 153, 0.3);">
+                    <svg class="icon-svg" viewBox="0 0 24 24">
+                        <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
+                    </svg>
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // --- AUDIO ENGINE ---
+        class AudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.oscillator = null;
+                this.gainNode = null;
+                this.filterNode = null;
+                this.isInitialized = false;
+            }
+
+            init() {
+                if (this.isInitialized) return;
+                try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                    
+                    // Drone Oscillator
+                    this.oscillator = this.ctx.createOscillator();
+                    this.oscillator.type = 'sine';
+                    this.oscillator.frequency.value = 50;
+
+                    // Filter
+                    this.filterNode = this.ctx.createBiquadFilter();
+                    this.filterNode.type = 'lowpass';
+                    this.filterNode.frequency.value = 100;
+
+                    // Gain (Volume)
+                    this.gainNode = this.ctx.createGain();
+                    this.gainNode.gain.value = 0;
+
+                    this.oscillator.connect(this.filterNode);
+                    this.filterNode.connect(this.gainNode);
+                    this.gainNode.connect(this.ctx.destination);
+
+                    this.oscillator.start();
+                    this.isInitialized = true;
+                } catch (e) {
+                    console.error("Audio init failed", e);
+                }
+            }
+
+            update(velocity) {
+                if (!this.isInitialized) return;
+                // Modulation sonore basée sur la vitesse
+                const targetFreq = 60 + (velocity * 200);
+                const targetGain = Math.min(velocity * 0.2, 0.15);
+                
+                this.oscillator.frequency.setTargetAtTime(targetFreq, this.ctx.currentTime, 0.1);
+                this.gainNode.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.1);
+            }
+
+            triggerPulse() {
+                if (!this.isInitialized) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + 0.5);
+                
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+                
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.5);
+            }
+        }
+
+        const audioEngine = new AudioEngine();
+
+        // --- GLOBAL VARIABLES ---
+        let scene, camera, renderer, sphere, particlesMesh;
+        let geometry, material;
+        let mouse = new THREE.Vector2();
+        let target = new THREE.Vector3();
+        let velocity = 0;
+        let originalPositions;
+        let clock = new THREE.Clock();
+        
+        // --- INIT THREE.JS ---
+        function init() {
+            const container = document.getElementById('canvas-container');
+            
+            // Scene Setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x050505);
+            scene.fog = new THREE.FogExp2(0x050505, 0.002);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.z = 5;
+
+            renderer = new THREE.WebGLRenderer({ 
+                antialias: true, 
+                alpha: true,
+                powerPreference: "high-performance"
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            container.appendChild(renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambientLight);
+
+            const pointLight1 = new THREE.PointLight(0x4f46e5, 2, 20);
+            pointLight1.position.set(5, 5, 5);
+            scene.add(pointLight1);
+
+            const pointLight2 = new THREE.PointLight(0xff00aa, 2, 20);
+            pointLight2.position.set(-5, -5, 5);
+            scene.add(pointLight2);
+
+            const spotLight = new THREE.SpotLight(0xffffff, 2);
+            spotLight.position.set(0, 10, 10);
+            spotLight.angle = Math.PI / 6;
+            spotLight.penumbra = 1;
+            scene.add(spotLight);
+
+            // The Liquid Sphere
+            geometry = new THREE.IcosahedronGeometry(1.5, 30);
+            originalPositions = geometry.attributes.position.array.slice();
+
+            material = new THREE.MeshPhysicalMaterial({
+                color: 0xffffff,
+                metalness: 0.1,
+                roughness: 0.05,
+                transmission: 0.95,
+                thickness: 1.5,
+                ior: 1.5,
+                clearcoat: 1.0,
+                clearcoatRoughness: 0.1,
+                side: THREE.DoubleSide
+            });
+
+            sphere = new THREE.Mesh(geometry, material);
+            scene.add(sphere);
+
+            // Particles Background
+            const particlesGeometry = new THREE.BufferGeometry();
+            const particlesCount = 300;
+            const posArray = new Float32Array(particlesCount * 3);
+            for(let i = 0; i < particlesCount * 3; i++) {
+                posArray[i] = (Math.random() - 0.5) * 20;
+            }
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const particlesMaterial = new THREE.PointsMaterial({
+                size: 0.02,
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.4
+            });
+            particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+            scene.add(particlesMesh);
+
+            // Remove loader
+            document.getElementById('loading').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('loading').style.display = 'none';
+            }, 500);
+
+            animate();
+        }
+
+        // --- MATH / NOISE ---
+        function noise(x, y, z, time) {
+            return Math.sin(x * 2 + time) * Math.cos(y * 1.5 + time) * Math.sin(z * 3 + time) * 0.3;
+        }
+
+        function updateSphere(time) {
+            const positions = geometry.attributes.position.array;
+            const wobbleIntensity = 0.2 + (velocity * 0.5);
+
+            for (let i = 0; i < positions.length; i += 3) {
+                const x = originalPositions[i];
+                const y = originalPositions[i + 1];
+                const z = originalPositions[i + 2];
+                
+                const vector = new THREE.Vector3(x, y, z).normalize();
+                const dist = 1.5 + noise(vector.x, vector.y, vector.z, time * 2) * wobbleIntensity;
+                
+                positions[i] = vector.x * dist;
+                positions[i + 1] = vector.y * dist;
+                positions[i + 2] = vector.z * dist;
+            }
+            geometry.attributes.position.needsUpdate = true;
+            geometry.computeVertexNormals();
+        }
+
+        // --- ANIMATION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = clock.getElapsedTime();
+
+            // Elastic Physics
+            target.x = mouse.x * 3;
+            target.y = mouse.y * 3;
+            
+            const oldPos = sphere.position.clone();
+            sphere.position.lerp(target, 0.05);
+            sphere.rotation.x += 0.002;
+            sphere.rotation.y += 0.003;
+
+            const currentVelocity = oldPos.distanceTo(sphere.position);
+            velocity = THREE.MathUtils.lerp(velocity, currentVelocity, 0.1);
+
+            // Audio Update
+            audioEngine.update(velocity * 50);
+
+            // Particles Rotation
+            particlesMesh.rotation.y = time * 0.05;
+
+            updateSphere(time);
+            renderer.render(scene, camera);
+        }
+
+        // --- EVENTS ---
+        
+        // Mouse Move
+        window.addEventListener('mousemove', (event) => {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        // Touch Move
+        window.addEventListener('touchmove', (event) => {
+            event.preventDefault(); // Important to stop scrolling
+            if(event.touches.length > 0) {
+                mouse.x = (event.touches[0].clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.touches[0].clientY / window.innerHeight) * 2 + 1;
+            }
+        }, { passive: false });
+
+        // Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Click Effect (Shockwave)
+        function triggerShockwave() {
+             if (navigator.vibrate) navigator.vibrate(20);
+             audioEngine.triggerPulse();
+             
+             const overlay = document.getElementById('flash-overlay');
+             overlay.style.opacity = '0.3';
+             setTimeout(() => overlay.style.opacity = '0', 100);
+             
+             // Ajoute une impulsion physique à la sphère
+             velocity += 0.5; 
+        }
+
+        window.addEventListener('click', (e) => {
+            // Ne pas déclencher si on clique sur un bouton de contrôle
+            if (!e.target.closest('button')) {
+                triggerShockwave();
+            }
+        });
+
+        // --- UI LOGIC ---
+
+        // Start Experience
+        const startScreen = document.getElementById('start-screen');
+        const footer = document.getElementById('main-footer');
+        
+        document.getElementById('start-trigger').addEventListener('click', (e) => {
+            e.stopPropagation();
+            audioEngine.init();
+            startScreen.classList.add('hidden');
+            footer.classList.add('visible');
+            triggerShockwave();
+        });
+
+        // Fullscreen Button
+        const btnFull = document.getElementById('btn-fullscreen');
+        btnFull.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => console.log(err));
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+            }
+        });
+
+        // Pulse/Effect Button
+        const btnPulse = document.getElementById('btn-pulse');
+        btnPulse.addEventListener('click', (e) => {
+            e.stopPropagation();
+            triggerShockwave();
+            // Effet supplémentaire : petit saut de la caméra
+            camera.position.z = 4.8;
+            setTimeout(() => {
+                // Retour fluide (dans l'animation loop, ça se verra peu mais ça ajoute du "jiggle")
+                const interval = setInterval(() => {
+                    camera.position.z += 0.01;
+                    if(camera.position.z >= 5) {
+                        camera.position.z = 5;
+                        clearInterval(interval);
+                    }
+                }, 16);
+            }, 50);
+        });
+
+        // Initialize
+        init();
+
+    </script>
+</body>
+</html>
