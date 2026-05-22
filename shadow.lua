@@ -1,5 +1,5 @@
 -- ====================================================================
--- 🍏 SHADOW VIP v11.5 : ANTI-KICK BYPASS, RESET BUTTON & APPLE DESIGN
+-- 🍏 SHADOW VIP v12.0 : SLIDERS FIXÉS, DÉGRADÉ ANIMÉ & ANTI-KICK
 -- ====================================================================
 
 local HttpService = game:GetService("HttpService")
@@ -9,6 +9,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
 local CoreLocation = (gethui and gethui()) or game:GetService("CoreGui")
 
 -- Nettoyage strict des anciennes instances
@@ -53,9 +54,9 @@ local Colors = {
     GlassBG = Color3.fromRGB(20, 20, 25),
     Surface = Color3.fromRGB(40, 40, 45),
     AppleBlue = Color3.fromRGB(10, 132, 255),
+    AppleRed = Color3.fromRGB(255, 59, 48),
     AppleText = Color3.fromRGB(240, 240, 245),
-    AppleSubText = Color3.fromRGB(160, 160, 170),
-    AppleRed = Color3.fromRGB(255, 59, 48)
+    AppleSubText = Color3.fromRGB(160, 160, 170)
 }
 
 -- ====================================================================
@@ -85,7 +86,7 @@ GearStroke.Color = Color3.fromRGB(255, 255, 255)
 GearStroke.Thickness = 1
 GearStroke.Transparency = 0.8
 
--- Effets Hover
+-- Effets Hover Bouton Principal
 GearBtn.MouseEnter:Connect(function()
     TweenService:Create(GearBtn, AnimFast, {Size = UDim2.new(0, 54, 0, 54), Position = UDim2.new(0.5, -27, 0.85, -2), BackgroundTransparency = 0.15}):Play()
 end)
@@ -117,14 +118,21 @@ CheatPage.Size = UDim2.new(1, 0, 1, 0)
 CheatPage.BackgroundTransparency = 1
 CheatPage.Parent = SettingsPanel
 
+-- TITRE AVEC DÉGRADÉ ANIMÉ ROUGE & BLEU
 local SettingsTitle = Instance.new("TextLabel")
 SettingsTitle.Size = UDim2.new(1, 0, 0, 40)
 SettingsTitle.BackgroundTransparency = 1
 SettingsTitle.Text = "S H A D O W"
-SettingsTitle.TextColor3 = Colors.AppleText
-SettingsTitle.Font = Enum.Font.GothamBold
-SettingsTitle.TextSize = 14
+SettingsTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+SettingsTitle.Font = Enum.Font.GothamBlack
+SettingsTitle.TextSize = 15
 SettingsTitle.Parent = CheatPage
+
+local TitleGradient = Instance.new("UIGradient", SettingsTitle)
+TitleGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Colors.AppleRed),
+    ColorSequenceKeypoint.new(1, Colors.AppleBlue)
+})
 
 local function CreateToggleButton(text, posX, posY)
     local btn = Instance.new("TextButton")
@@ -182,7 +190,7 @@ local SpinSliderBg, SpinSliderFill, SpinLabel = CreateSlider("Vitesse de Spin", 
 -- 🔄 BOUTON RESET VITESSE DE VOL 🔄
 local ResetFlyBtn = Instance.new("TextButton")
 ResetFlyBtn.Size = UDim2.new(0, 45, 0, 15)
-ResetFlyBtn.Position = UDim2.new(1, -45, 0, 0) -- Collé à droite du FlyLabel
+ResetFlyBtn.Position = UDim2.new(1, -45, 0, 0)
 ResetFlyBtn.BackgroundTransparency = 1
 ResetFlyBtn.Text = "RESET ↺"
 ResetFlyBtn.TextColor3 = Colors.AppleBlue
@@ -190,7 +198,6 @@ ResetFlyBtn.Font = Enum.Font.GothamBold
 ResetFlyBtn.TextSize = 10
 ResetFlyBtn.Parent = FlyLabel
 
--- Animation et logique du bouton Reset
 ResetFlyBtn.MouseEnter:Connect(function() TweenService:Create(ResetFlyBtn, AnimFast, {TextColor3 = Colors.AppleText}):Play() end)
 ResetFlyBtn.MouseLeave:Connect(function() TweenService:Create(ResetFlyBtn, AnimFast, {TextColor3 = Colors.AppleBlue}):Play() end)
 ResetFlyBtn.MouseButton1Click:Connect(function()
@@ -293,25 +300,51 @@ BackBtn.MouseButton1Click:Connect(function()
     TweenService:Create(ProfilePage, AnimBouncy, {Position = UDim2.new(1, 0, 0, 0)}):Play()
 end)
 
--- Gestion Sliders Fluide
-local function HandleSlider(Input, Bg, Fill, Label, Prefix, ConfigKey)
-    local Pos = math.clamp((Input.Position.X - Bg.AbsolutePosition.X) / Bg.AbsoluteSize.X, 0, 1)
-    TweenService:Create(Fill, AnimFast, {Size = UDim2.new(Pos, 0, 1, 0)}):Play()
-    Config[ConfigKey] = math.max(1, math.floor(Pos * Config.MaxSpeed))
-    Label.Text = Prefix .. " : " .. Config[ConfigKey]
+-- ====================================================================
+-- 🎚️ NOUVELLE LOGIQUE DES SLIDERS (100% FIABLE)
+-- ====================================================================
+local DraggingFly, DraggingSpin = false, false
+
+local function UpdateSlider(bg, fill, label, prefix, configKey)
+    -- Sécurité pour éviter les erreurs de division par zéro
+    if bg.AbsoluteSize.X == 0 then return end 
+    
+    -- Utilisation de la position globale de la souris pour une fiabilité absolue
+    local relativeX = math.clamp(Mouse.X - bg.AbsolutePosition.X, 0, bg.AbsoluteSize.X)
+    local percent = relativeX / bg.AbsoluteSize.X
+    
+    TweenService:Create(fill, AnimFast, {Size = UDim2.new(percent, 0, 1, 0)}):Play()
+    Config[configKey] = math.max(1, math.floor(percent * Config.MaxSpeed))
+    label.Text = prefix .. " : " .. Config[configKey]
 end
 
-local DraggingFly, DraggingSpin = false, false
-FlySliderBg.InputBegan:Connect(function(i) if i.UserInputType.Name:match("MouseButton1") then DraggingFly = true; HandleSlider(i, FlySliderBg, FlySliderFill, FlyLabel, "Vitesse de Vol", "FlySpeed") end end)
-SpinSliderBg.InputBegan:Connect(function(i) if i.UserInputType.Name:match("MouseButton1") then DraggingSpin = true; HandleSlider(i, SpinSliderBg, SpinSliderFill, SpinLabel, "Vitesse de Spin", "SpinSpeed") end end)
-
-UserInputService.InputChanged:Connect(function(i)
-    if i.UserInputType.Name:match("MouseMovement") then
-        if DraggingFly then HandleSlider(i, FlySliderBg, FlySliderFill, FlyLabel, "Vitesse de Vol", "FlySpeed") end
-        if DraggingSpin then HandleSlider(i, SpinSliderBg, SpinSliderFill, SpinLabel, "Vitesse de Spin", "SpinSpeed") end
+FlySliderBg.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        DraggingFly = true
+        UpdateSlider(FlySliderBg, FlySliderFill, FlyLabel, "Vitesse de Vol", "FlySpeed")
     end
 end)
-UserInputService.InputEnded:Connect(function(i) if i.UserInputType.Name:match("MouseButton1") then DraggingFly, DraggingSpin = false, false end end)
+
+SpinSliderBg.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        DraggingSpin = true
+        UpdateSlider(SpinSliderBg, SpinSliderFill, SpinLabel, "Vitesse de Spin", "SpinSpeed")
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        if DraggingFly then UpdateSlider(FlySliderBg, FlySliderFill, FlyLabel, "Vitesse de Vol", "FlySpeed") end
+        if DraggingSpin then UpdateSlider(SpinSliderBg, SpinSliderFill, SpinLabel, "Vitesse de Spin", "SpinSpeed") end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        DraggingFly = false
+        DraggingSpin = false
+    end
+end)
 
 -- ====================================================================
 -- 🚀 MOTEUR DE VOL "ANCHORED" AVEC BYPASS CAMÉRA JITTER
@@ -355,10 +388,12 @@ SpinBtn.MouseButton1Click:Connect(function()
     UpdateButtonVisual(SpinBtn, State.Spin)
 end)
 
--- MOTEUR PHYSIQUE PRIORITAIRE (BindToRenderStep au lieu de RenderStepped)
--- L'astuce : Enum.RenderPriority.Camera.Value - 1 force ton personnage à bouger
--- EXACTEMENT avant que la caméra ne calcule sa position. Zéro tremblement !
+-- BOUCLE DE RENDU PRINCIPALE (Mouvement Physique + Animation Dégradé)
 RunService:BindToRenderStep("ShadowRenderEngine", Enum.RenderPriority.Camera.Value - 1, function(deltaTime)
+    -- Animation fluide du dégradé du titre
+    TitleGradient.Rotation = (TitleGradient.Rotation + 1.5) % 360
+
+    -- Logique du personnage
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -371,7 +406,6 @@ RunService:BindToRenderStep("ShadowRenderEngine", Enum.RenderPriority.Camera.Val
         local look = cam.CFrame.LookVector
         local right = cam.CFrame.RightVector
         
-        -- Calcul de la direction (-moveDir.Z car Z négatif = avant)
         local direction = (look * -moveDir.Z) + (right * moveDir.X)
         if direction.Magnitude > 0 then
             direction = direction.Unit
@@ -380,19 +414,16 @@ RunService:BindToRenderStep("ShadowRenderEngine", Enum.RenderPriority.Camera.Val
         local displacement = direction * (Config.FlySpeed * deltaTime)
         local newPos = root.Position + displacement
 
-        -- Application fluide des CFrame
         if State.Spin then
             State.SpinAngle = State.SpinAngle + (Config.SpinSpeed * deltaTime * 3)
             root.CFrame = CFrame.new(newPos) * CFrame.Angles(0, math.rad(State.SpinAngle), 0)
         elseif State.ShiftLock then
             root.CFrame = CFrame.lookAt(newPos, Vector3.new(newPos.X + look.X, newPos.Y, newPos.Z + look.Z))
         else
-            -- Suit la rotation de la caméra au millimètre près
             root.CFrame = CFrame.new(newPos) * cam.CFrame.Rotation
         end
 
     elseif not State.Fly then
-        -- Comportement au sol
         if State.Spin then
             if hum then hum.AutoRotate = false end
             State.SpinAngle = State.SpinAngle + (Config.SpinSpeed * deltaTime * 2)
