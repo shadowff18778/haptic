@@ -1,5 +1,5 @@
 -- ====================================================================
--- 🍏 SHADOW VIP v14.0 : AIMBOT ONE-TAP, ESP DYNAMIQUE & APPLE UI
+-- 🍏 SHADOW VIP v14.0 : AIMBOT ONE-TAP, ESP DYNAMIQUE, APPLE UI & NOCLIP
 -- ====================================================================
 
 local HttpService = game:GetService("HttpService")
@@ -24,6 +24,7 @@ local State = {
     Fly = false,
     Spin = false,
     ShiftLock = false,
+    Noclip = false, -- Ajout du statut Noclip
     MenuOpen = false,
     SpinAngle = 0,
     Walk = false,
@@ -197,9 +198,11 @@ CheatPage.Size = UDim2.new(1, 0, 1, 0)
 CheatPage.BackgroundTransparency = 1
 
 local _, TitleGrad = CreateTitle(CheatPage, "S H A D O W")
-local FlyBtn = CreateToggleButton(CheatPage, "FLY ✈️", 16, 45)
-local LockBtn = CreateToggleButton(CheatPage, "LOCK 🔒", 102, 45)
-local SpinBtn = CreateToggleButton(CheatPage, "SPIN 🌪️", 188, 45)
+-- Ajustement propre pour intégrer le bouton Noclip
+local FlyBtn = CreateToggleButton(CheatPage, "FLY ✈️", 12, 45, 60)
+local LockBtn = CreateToggleButton(CheatPage, "LOCK 🔒", 77, 45, 60)
+local SpinBtn = CreateToggleButton(CheatPage, "SPIN 🌪️", 142, 45, 60)
+local NoclipBtn = CreateToggleButton(CheatPage, "CLIP 👻", 207, 45, 60)
 
 local FlySliderBg, FlySliderFill, FlyLabel, FlyReset = CreateSlider(CheatPage, "Vitesse de Vol", 95, Config.FlySpeed)
 local SpinSliderBg, SpinSliderFill, SpinLabel, SpinReset = CreateSlider(CheatPage, "Vitesse de Spin", 145, Config.SpinSpeed)
@@ -384,6 +387,11 @@ SpinBtn.MouseButton1Click:Connect(function()
     if State.Spin then State.ShiftLock = false; UpdateButtonVisual(LockBtn, false) end
     UpdateButtonVisual(SpinBtn, State.Spin)
 end)
+NoclipBtn.MouseButton1Click:Connect(function()
+    State.Noclip = not State.Noclip
+    UpdateButtonVisual(NoclipBtn, State.Noclip)
+end)
+
 WalkBtn.MouseButton1Click:Connect(function()
     State.Walk = not State.Walk
     UpdateButtonVisual(WalkBtn, State.Walk)
@@ -436,6 +444,19 @@ local function GetClosestTarget()
     end
     return target
 end
+
+-- ====================================================================
+-- 👻 NOCLIP (LOGIQUE FLUIDE VIA STEPPED)
+-- ====================================================================
+RunService.Stepped:Connect(function()
+    if State.Noclip and LocalPlayer.Character then
+        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
 
 -- ====================================================================
 -- 🔄 MOTEUR DE RENDU PRINCIPAL (ESP, MOUVEMENTS & AIMBOT)
