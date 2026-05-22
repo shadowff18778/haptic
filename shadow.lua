@@ -1,5 +1,5 @@
 -- ====================================================================
--- 🍏 SHADOW VIP v11.0 : APPLE FLUID DESIGN & PERFECT FLY PHYSICS
+-- 🍏 SHADOW VIP v11.5 : ANTI-KICK BYPASS, RESET BUTTON & APPLE DESIGN
 -- ====================================================================
 
 local HttpService = game:GetService("HttpService")
@@ -27,9 +27,14 @@ local State = {
     SpinAngle = 0
 }
 
-local Config = {
+local DefaultConfig = {
     FlySpeed = 100,
-    SpinSpeed = 500,
+    SpinSpeed = 500
+}
+
+local Config = {
+    FlySpeed = DefaultConfig.FlySpeed,
+    SpinSpeed = DefaultConfig.SpinSpeed,
     MaxSpeed = 5000
 }
 
@@ -49,7 +54,8 @@ local Colors = {
     Surface = Color3.fromRGB(40, 40, 45),
     AppleBlue = Color3.fromRGB(10, 132, 255),
     AppleText = Color3.fromRGB(240, 240, 245),
-    AppleSubText = Color3.fromRGB(160, 160, 170)
+    AppleSubText = Color3.fromRGB(160, 160, 170),
+    AppleRed = Color3.fromRGB(255, 59, 48)
 }
 
 -- ====================================================================
@@ -73,7 +79,7 @@ GearBtn.Font = Enum.Font.GothamMedium
 GearBtn.AutoButtonColor = false
 GearBtn.Parent = ScreenGui
 
-Instance.new("UICorner", GearBtn).CornerRadius = UDim.new(0.5, 0) -- Cercle parfait
+Instance.new("UICorner", GearBtn).CornerRadius = UDim.new(0.5, 0)
 local GearStroke = Instance.new("UIStroke", GearBtn)
 GearStroke.Color = Color3.fromRGB(255, 255, 255)
 GearStroke.Thickness = 1
@@ -120,7 +126,6 @@ SettingsTitle.Font = Enum.Font.GothamBold
 SettingsTitle.TextSize = 14
 SettingsTitle.Parent = CheatPage
 
--- Fonction utilitaire pour créer des boutons iOS
 local function CreateToggleButton(text, posX, posY)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0, 76, 0, 36)
@@ -141,7 +146,6 @@ local FlyBtn = CreateToggleButton("FLY ✈️", 16, 45)
 local LockBtn = CreateToggleButton("LOCK 🔒", 102, 45)
 local SpinBtn = CreateToggleButton("SPIN 🌪️", 188, 45)
 
--- Fonction utilitaire pour créer des sliders iOS
 local function CreateSlider(titleText, posY, defaultVal)
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, -32, 0, 15)
@@ -175,7 +179,26 @@ end
 local FlySliderBg, FlySliderFill, FlyLabel = CreateSlider("Vitesse de Vol", 95, Config.FlySpeed)
 local SpinSliderBg, SpinSliderFill, SpinLabel = CreateSlider("Vitesse de Spin", 145, Config.SpinSpeed)
 
--- Bouton de profil
+-- 🔄 BOUTON RESET VITESSE DE VOL 🔄
+local ResetFlyBtn = Instance.new("TextButton")
+ResetFlyBtn.Size = UDim2.new(0, 45, 0, 15)
+ResetFlyBtn.Position = UDim2.new(1, -45, 0, 0) -- Collé à droite du FlyLabel
+ResetFlyBtn.BackgroundTransparency = 1
+ResetFlyBtn.Text = "RESET ↺"
+ResetFlyBtn.TextColor3 = Colors.AppleBlue
+ResetFlyBtn.Font = Enum.Font.GothamBold
+ResetFlyBtn.TextSize = 10
+ResetFlyBtn.Parent = FlyLabel
+
+-- Animation et logique du bouton Reset
+ResetFlyBtn.MouseEnter:Connect(function() TweenService:Create(ResetFlyBtn, AnimFast, {TextColor3 = Colors.AppleText}):Play() end)
+ResetFlyBtn.MouseLeave:Connect(function() TweenService:Create(ResetFlyBtn, AnimFast, {TextColor3 = Colors.AppleBlue}):Play() end)
+ResetFlyBtn.MouseButton1Click:Connect(function()
+    Config.FlySpeed = DefaultConfig.FlySpeed
+    FlyLabel.Text = "Vitesse de Vol : " .. Config.FlySpeed
+    TweenService:Create(FlySliderFill, AnimBouncy, {Size = UDim2.new(Config.FlySpeed / Config.MaxSpeed, 0, 1, 0)}):Play()
+end)
+
 local ProfileNavBtn = CreateToggleButton("👤 Profil", 16, 205)
 ProfileNavBtn.Size = UDim2.new(1, -32, 0, 36)
 ProfileNavBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
@@ -202,8 +225,8 @@ local BackBtn = Instance.new("TextButton")
 BackBtn.Size = UDim2.new(0, 30, 0, 30)
 BackBtn.Position = UDim2.new(0, 12, 0, 5)
 BackBtn.BackgroundTransparency = 1
-BackBtn.Text = "􀆉" -- Symbole de retour style Apple (SF Pro) fallback sur < si introuvable
-BackBtn.TextSize = 18
+BackBtn.Text = "⬅" 
+BackBtn.TextSize = 16
 BackBtn.TextColor3 = Colors.AppleBlue
 BackBtn.Font = Enum.Font.GothamBold
 BackBtn.Parent = ProfilePage
@@ -291,40 +314,8 @@ end)
 UserInputService.InputEnded:Connect(function(i) if i.UserInputType.Name:match("MouseButton1") then DraggingFly, DraggingSpin = false, false end end)
 
 -- ====================================================================
--- 🚀 MOTEUR PHYSIQUE DE VOL (CAMÉRA SANS TREMBLEMENTS)
+-- 🚀 MOTEUR DE VOL "ANCHORED" AVEC BYPASS CAMÉRA JITTER
 -- ====================================================================
-local FlyVelocity, FlyGyro, FlyAttachment
-
-local function TogglePhysicsFly(enabled)
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if not root or not hum then return end
-
-    if enabled then
-        hum.PlatformStand = true
-
-        -- Création des contraintes physiques (Zéro tremblement de caméra)
-        FlyAttachment = Instance.new("Attachment", root)
-        
-        FlyVelocity = Instance.new("LinearVelocity", root)
-        FlyVelocity.Attachment0 = FlyAttachment
-        FlyVelocity.MaxForce = math.huge
-        FlyVelocity.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
-        FlyVelocity.RelativeTo = Enum.ActuatorRelativeTo.World
-        
-        FlyGyro = Instance.new("AlignOrientation", root)
-        FlyGyro.Attachment0 = FlyAttachment
-        FlyGyro.Mode = Enum.OrientationAlignmentMode.OneAttachment
-        FlyGyro.MaxTorque = math.huge
-        FlyGyro.Responsiveness = 200 -- Rotation immédiate
-    else
-        hum.PlatformStand = false
-        if FlyVelocity then FlyVelocity:Destroy() end
-        if FlyGyro then FlyGyro:Destroy() end
-        if FlyAttachment then FlyAttachment:Destroy() end
-    end
-end
 
 local function UpdateButtonVisual(btn, active)
     TweenService:Create(btn, AnimFast, {
@@ -336,7 +327,20 @@ end
 FlyBtn.MouseButton1Click:Connect(function()
     State.Fly = not State.Fly
     UpdateButtonVisual(FlyBtn, State.Fly)
-    TogglePhysicsFly(State.Fly)
+
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    
+    if root and hum then
+        if State.Fly then
+            hum.PlatformStand = true
+            root.Anchored = true -- Sécurité 100% Anti-Kick (Aucune Vélocité réelle)
+        else
+            hum.PlatformStand = false
+            root.Anchored = false
+        end
+    end
 end)
 
 LockBtn.MouseButton1Click:Connect(function()
@@ -351,46 +355,50 @@ SpinBtn.MouseButton1Click:Connect(function()
     UpdateButtonVisual(SpinBtn, State.Spin)
 end)
 
--- Boucle de Rendu
-RunService.RenderStepped:Connect(function(deltaTime)
+-- MOTEUR PHYSIQUE PRIORITAIRE (BindToRenderStep au lieu de RenderStepped)
+-- L'astuce : Enum.RenderPriority.Camera.Value - 1 force ton personnage à bouger
+-- EXACTEMENT avant que la caméra ne calcule sa position. Zéro tremblement !
+RunService:BindToRenderStep("ShadowRenderEngine", Enum.RenderPriority.Camera.Value - 1, function(deltaTime)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
-    local cam = workspace.CurrentCamera
     local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local cam = workspace.CurrentCamera
 
     if not root or not cam then return end
 
-    if State.Fly and FlyVelocity and FlyGyro then
-        -- Mouvement calculé via LinearVelocity
+    if State.Fly then
         local moveDir = Controls and Controls:GetMoveVector() or Vector3.zero
         local look = cam.CFrame.LookVector
         local right = cam.CFrame.RightVector
         
-        local direction = (right * moveDir.X) + (look * -moveDir.Z)
+        -- Calcul de la direction (-moveDir.Z car Z négatif = avant)
+        local direction = (look * -moveDir.Z) + (right * moveDir.X)
         if direction.Magnitude > 0 then
             direction = direction.Unit
         end
 
-        FlyVelocity.VectorVelocity = direction * Config.FlySpeed
+        local displacement = direction * (Config.FlySpeed * deltaTime)
+        local newPos = root.Position + displacement
 
-        -- Rotation calculée via AlignOrientation
+        -- Application fluide des CFrame
         if State.Spin then
-            State.SpinAngle = State.SpinAngle + (Config.SpinSpeed * deltaTime)
-            FlyGyro.CFrame = CFrame.new(Vector3.zero) * CFrame.Angles(0, math.rad(State.SpinAngle), 0)
+            State.SpinAngle = State.SpinAngle + (Config.SpinSpeed * deltaTime * 3)
+            root.CFrame = CFrame.new(newPos) * CFrame.Angles(0, math.rad(State.SpinAngle), 0)
         elseif State.ShiftLock then
-            FlyGyro.CFrame = CFrame.lookAt(Vector3.zero, Vector3.new(look.X, 0, look.Z))
+            root.CFrame = CFrame.lookAt(newPos, Vector3.new(newPos.X + look.X, newPos.Y, newPos.Z + look.Z))
         else
-            FlyGyro.CFrame = cam.CFrame
+            -- Suit la rotation de la caméra au millimètre près
+            root.CFrame = CFrame.new(newPos) * cam.CFrame.Rotation
         end
 
     elseif not State.Fly then
         -- Comportement au sol
         if State.Spin then
-            hum.AutoRotate = false
+            if hum then hum.AutoRotate = false end
             State.SpinAngle = State.SpinAngle + (Config.SpinSpeed * deltaTime * 2)
             root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(Config.SpinSpeed * deltaTime), 0)
         elseif State.ShiftLock then
-            hum.AutoRotate = false
+            if hum then hum.AutoRotate = false end
             local look = cam.CFrame.LookVector
             root.CFrame = CFrame.lookAt(root.Position, Vector3.new(root.Position.X + look.X, root.Position.Y, root.Position.Z + look.Z))
         else
