@@ -1,5 +1,5 @@
 -- ====================================================================
--- 🍏 SHADOW VIP v13.0 : ESP RAINBOW CHAMS, SPEED/JUMP & APPLE DESIGN
+-- 🍏 SHADOW VIP v14.0 : AIMBOT ONE-TAP, ESP DYNAMIQUE & APPLE UI
 -- ====================================================================
 
 local HttpService = game:GetService("HttpService")
@@ -29,14 +29,16 @@ local State = {
     Walk = false,
     Jump = false,
     EspNames = false,
-    EspChams = false
+    EspChams = false,
+    Aimbot = false
 }
 
 local DefaultConfig = {
     FlySpeed = 100,
     SpinSpeed = 500,
     WalkSpeed = 16,
-    JumpPower = 50
+    JumpPower = 50,
+    AimbotSmoothness = 0.6 -- Vitesse du verrouillage de la caméra (1 = instantané)
 }
 
 local Config = {
@@ -44,7 +46,7 @@ local Config = {
     SpinSpeed = DefaultConfig.SpinSpeed,
     WalkSpeed = DefaultConfig.WalkSpeed,
     JumpPower = DefaultConfig.JumpPower,
-    MaxSpeed = 9999 -- Maximum étendu à 9999 comme demandé
+    MaxSpeed = 9999
 }
 
 local Controls
@@ -53,7 +55,6 @@ pcall(function()
     Controls = PlayerModule:GetControls()
 end)
 
--- Moteurs d'animations (Style iOS)
 local AnimBouncy = TweenInfo.new(0.5, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out)
 local AnimSmooth = TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 local AnimFast = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -68,14 +69,13 @@ local Colors = {
 }
 
 -- ====================================================================
--- 🎨 CRÉATION DE L'INTERFACE (APPLE DESIGN)
+-- 🎨 CRÉATION DE L'INTERFACE
 -- ====================================================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "PremiumFly_" .. HttpService:GenerateGUID(false)
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = CoreLocation
 
--- Bouton d'ancrage principal
 local GearBtn = Instance.new("TextButton")
 GearBtn.Size = UDim2.new(0, 50, 0, 50)
 GearBtn.Position = UDim2.new(0.5, -25, 0.85, 0)
@@ -97,7 +97,6 @@ GearStroke.Transparency = 0.8
 GearBtn.MouseEnter:Connect(function() TweenService:Create(GearBtn, AnimFast, {Size = UDim2.new(0, 54, 0, 54), Position = UDim2.new(0.5, -27, 0.85, -2), BackgroundTransparency = 0.15}):Play() end)
 GearBtn.MouseLeave:Connect(function() TweenService:Create(GearBtn, AnimFast, {Size = UDim2.new(0, 50, 0, 50), Position = UDim2.new(0.5, -25, 0.85, 0), BackgroundTransparency = 0.3}):Play() end)
 
--- Panneau Central (Glassmorphism)
 local SettingsPanel = Instance.new("CanvasGroup")
 SettingsPanel.Size = UDim2.new(0, 280, 0, 260)
 SettingsPanel.Position = UDim2.new(0.5, -140, 0.85, -100)
@@ -113,7 +112,7 @@ PanelStroke.Color = Color3.fromRGB(255, 255, 255)
 PanelStroke.Thickness = 1
 PanelStroke.Transparency = 0.8
 
--- FONCTIONS UTILITAIRES UI
+-- FONCTIONS UI
 local function CreateTitle(parent, text)
     local Title = Instance.new("TextLabel")
     Title.Size = UDim2.new(1, 0, 0, 40)
@@ -123,7 +122,6 @@ local function CreateTitle(parent, text)
     Title.Font = Enum.Font.GothamBlack
     Title.TextSize = 15
     Title.Parent = parent
-    
     local Gradient = Instance.new("UIGradient", Title)
     Gradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Colors.AppleRed),
@@ -191,26 +189,12 @@ local function CreateSlider(parent, titleText, posY, defaultVal)
     return bg, fill, label, resetBtn
 end
 
-local function CreateBackButton(parent)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 30, 0, 30)
-    btn.Position = UDim2.new(0, 12, 0, 5)
-    btn.BackgroundTransparency = 1
-    btn.Text = "⬅" 
-    btn.TextSize = 16
-    btn.TextColor3 = Colors.AppleBlue
-    btn.Font = Enum.Font.GothamBold
-    btn.Parent = parent
-    return btn
-end
-
 -- ====================================================================
--- 📂 PAGE 1 : CHEATS PRINCIPAUX
+-- 📂 PAGES
 -- ====================================================================
-local CheatPage = Instance.new("Frame")
+local CheatPage = Instance.new("Frame", SettingsPanel)
 CheatPage.Size = UDim2.new(1, 0, 1, 0)
 CheatPage.BackgroundTransparency = 1
-CheatPage.Parent = SettingsPanel
 
 local _, TitleGrad = CreateTitle(CheatPage, "S H A D O W")
 local FlyBtn = CreateToggleButton(CheatPage, "FLY ✈️", 16, 45)
@@ -231,27 +215,26 @@ SpinReset.MouseButton1Click:Connect(function()
     TweenService:Create(SpinSliderFill, AnimBouncy, {Size = UDim2.new(Config.SpinSpeed / Config.MaxSpeed, 0, 1, 0)}):Play()
 end)
 
--- Nouveaux boutons de Navigation Divisés (Bottom)
 local ProfileNavBtn = CreateToggleButton(CheatPage, "👤 Profil", 16, 205, 118)
 local OtherNavBtn = CreateToggleButton(CheatPage, "⚙️ Autre", 146, 205, 118)
 
 -- ====================================================================
--- 👤 PAGE 2 : PROFIL (CACHÉE À GAUCHE)
+-- 👤 PAGE 2 : PROFIL
 -- ====================================================================
-local ProfilePage = Instance.new("Frame")
+local ProfilePage = Instance.new("Frame", SettingsPanel)
 ProfilePage.Size = UDim2.new(1, 0, 1, 0)
 ProfilePage.Position = UDim2.new(1, 0, 0, 0)
 ProfilePage.BackgroundTransparency = 1
-ProfilePage.Parent = SettingsPanel
 
 CreateTitle(ProfilePage, "PROFIL")
-local ProfileBackBtn = CreateBackButton(ProfilePage)
+local ProfileBackBtn = Instance.new("TextButton", ProfilePage)
+ProfileBackBtn.Size, ProfileBackBtn.Position = UDim2.new(0, 30, 0, 30), UDim2.new(0, 12, 0, 5)
+ProfileBackBtn.BackgroundTransparency, ProfileBackBtn.Text = 1, "⬅"
+ProfileBackBtn.TextSize, ProfileBackBtn.TextColor3, ProfileBackBtn.Font = 16, Colors.AppleBlue, Enum.Font.GothamBold
 
-local AvatarImg = Instance.new("ImageLabel")
-AvatarImg.Size = UDim2.new(0, 70, 0, 70)
-AvatarImg.Position = UDim2.new(0, 20, 0, 55)
+local AvatarImg = Instance.new("ImageLabel", ProfilePage)
+AvatarImg.Size, AvatarImg.Position = UDim2.new(0, 70, 0, 70), UDim2.new(0, 20, 0, 55)
 AvatarImg.BackgroundColor3 = Colors.Surface
-AvatarImg.Parent = ProfilePage
 Instance.new("UICorner", AvatarImg).CornerRadius = UDim.new(1, 0)
 
 task.spawn(function()
@@ -259,41 +242,31 @@ task.spawn(function()
     if IsReady then AvatarImg.Image = Content end
 end)
 
-local InfoContainer = Instance.new("Frame")
-InfoContainer.Size = UDim2.new(1, -110, 0, 140)
-InfoContainer.Position = UDim2.new(0, 105, 0, 55)
-InfoContainer.BackgroundTransparency = 1
-InfoContainer.Parent = ProfilePage
+local InfoContainer = Instance.new("Frame", ProfilePage)
+InfoContainer.Size, InfoContainer.Position, InfoContainer.BackgroundTransparency = UDim2.new(1, -110, 0, 140), UDim2.new(0, 105, 0, 55), 1
 
 local function CreateInfoLabel(text, order)
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 0, 20)
-    label.Position = UDim2.new(0, 0, 0, (order - 1) * 22)
-    label.BackgroundTransparency = 1
-    label.Text = text
-    label.TextColor3 = Colors.AppleSubText
-    label.Font = Enum.Font.GothamMedium
-    label.TextSize = 11
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = InfoContainer
+    local label = Instance.new("TextLabel", InfoContainer)
+    label.Size, label.Position, label.BackgroundTransparency = UDim2.new(1, 0, 0, 20), UDim2.new(0, 0, 0, (order - 1) * 22), 1
+    label.Text, label.TextColor3, label.Font, label.TextSize, label.TextXAlignment = text, Colors.AppleSubText, Enum.Font.GothamMedium, 11, Enum.TextXAlignment.Left
 end
-
 CreateInfoLabel("📛 " .. LocalPlayer.Name, 1)
 CreateInfoLabel("✨ " .. LocalPlayer.DisplayName, 2)
 CreateInfoLabel("🆔 " .. LocalPlayer.UserId, 3)
-CreateInfoLabel("📆 " .. LocalPlayer.AccountAge .. " jours", 4)
 
 -- ====================================================================
--- ⚙️ PAGE 3 : AUTRES MODULES (CACHÉE À DROITE)
+-- ⚙️ PAGE 3 : AUTRES MODULES (ESP + AIMBOT)
 -- ====================================================================
-local OtherPage = Instance.new("Frame")
+local OtherPage = Instance.new("Frame", SettingsPanel)
 OtherPage.Size = UDim2.new(1, 0, 1, 0)
 OtherPage.Position = UDim2.new(-1, 0, 0, 0)
 OtherPage.BackgroundTransparency = 1
-OtherPage.Parent = SettingsPanel
 
 local _, OtherGrad = CreateTitle(OtherPage, "A U T R E S")
-local OtherBackBtn = CreateBackButton(OtherPage)
+local OtherBackBtn = Instance.new("TextButton", OtherPage)
+OtherBackBtn.Size, OtherBackBtn.Position = UDim2.new(0, 30, 0, 30), UDim2.new(0, 12, 0, 5)
+OtherBackBtn.BackgroundTransparency, OtherBackBtn.Text = 1, "⬅"
+OtherBackBtn.TextSize, OtherBackBtn.TextColor3, OtherBackBtn.Font = 16, Colors.AppleBlue, Enum.Font.GothamBold
 
 local WalkBtn = CreateToggleButton(OtherPage, "SPEED 🏃", 16, 45, 118)
 local JumpBtn = CreateToggleButton(OtherPage, "JUMP ⬆️", 146, 45, 118)
@@ -312,11 +285,13 @@ JumpReset.MouseButton1Click:Connect(function()
     TweenService:Create(JumpSliderFill, AnimBouncy, {Size = UDim2.new(Config.JumpPower / Config.MaxSpeed, 0, 1, 0)}):Play()
 end)
 
-local EspNamesBtn = CreateToggleButton(OtherPage, "ESP NOMS 🌈", 16, 175, 118)
-local EspChamsBtn = CreateToggleButton(OtherPage, "ESP CHAMS 🌈", 146, 175, 118)
+-- 3 Boutons Alignés en bas de la page Autre
+local EspNamesBtn = CreateToggleButton(OtherPage, "NOMS 🌈", 16, 175, 76)
+local EspChamsBtn = CreateToggleButton(OtherPage, "CHAMS 🌈", 102, 175, 76)
+local AimbotBtn = CreateToggleButton(OtherPage, "AIMBOT 🎯", 188, 175, 76)
 
 -- ====================================================================
--- 🎚️ LOGIQUE DE NAVIGATION & INTERFACE
+-- 🎚️ LOGIQUE DE NAVIGATION & BOUTONS
 -- ====================================================================
 GearBtn.MouseButton1Click:Connect(function()
     State.MenuOpen = not State.MenuOpen
@@ -330,7 +305,6 @@ GearBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Navigation Profil (Vers la droite)
 ProfileNavBtn.MouseButton1Click:Connect(function()
     TweenService:Create(CheatPage, AnimBouncy, {Position = UDim2.new(-1, 0, 0, 0)}):Play()
     TweenService:Create(ProfilePage, AnimBouncy, {Position = UDim2.new(0, 0, 0, 0)}):Play()
@@ -340,7 +314,6 @@ ProfileBackBtn.MouseButton1Click:Connect(function()
     TweenService:Create(ProfilePage, AnimBouncy, {Position = UDim2.new(1, 0, 0, 0)}):Play()
 end)
 
--- Navigation Autre (Vers la gauche)
 OtherNavBtn.MouseButton1Click:Connect(function()
     TweenService:Create(CheatPage, AnimBouncy, {Position = UDim2.new(1, 0, 0, 0)}):Play()
     TweenService:Create(OtherPage, AnimBouncy, {Position = UDim2.new(0, 0, 0, 0)}):Play()
@@ -349,9 +322,6 @@ OtherBackBtn.MouseButton1Click:Connect(function()
     TweenService:Create(CheatPage, AnimBouncy, {Position = UDim2.new(0, 0, 0, 0)}):Play()
     TweenService:Create(OtherPage, AnimBouncy, {Position = UDim2.new(-1, 0, 0, 0)}):Play()
 end)
-
--- GESTION UNIVERSELLE DES SLIDERS
-local Dragging = {Fly = false, Spin = false, Walk = false, Jump = false}
 
 local function UpdateSlider(bg, fill, label, prefix, configKey)
     if bg.AbsoluteSize.X == 0 then return end 
@@ -362,6 +332,7 @@ local function UpdateSlider(bg, fill, label, prefix, configKey)
     label.Text = prefix .. " : " .. Config[configKey]
 end
 
+local Dragging = {}
 local function BindSlider(bg, fill, label, prefix, dragKey, configKey)
     bg.InputBegan:Connect(function(i)
         if i.UserInputType.Name:match("MouseButton1") or i.UserInputType.Name:match("Touch") then
@@ -370,7 +341,6 @@ local function BindSlider(bg, fill, label, prefix, dragKey, configKey)
         end
     end)
 end
-
 BindSlider(FlySliderBg, FlySliderFill, FlyLabel, "Vitesse de Vol", "Fly", "FlySpeed")
 BindSlider(SpinSliderBg, SpinSliderFill, SpinLabel, "Vitesse de Spin", "Spin", "SpinSpeed")
 BindSlider(WalkSliderBg, WalkSliderFill, WalkLabel, "Vitesse", "Walk", "WalkSpeed")
@@ -384,16 +354,12 @@ UserInputService.InputChanged:Connect(function(i)
         if Dragging.Jump then UpdateSlider(JumpSliderBg, JumpSliderFill, JumpLabel, "Saut", "JumpPower") end
     end
 end)
-
 UserInputService.InputEnded:Connect(function(i)
     if i.UserInputType.Name:match("MouseButton1") or i.UserInputType.Name:match("Touch") then
-        for k, v in pairs(Dragging) do Dragging[k] = false end
+        for k, _ in pairs(Dragging) do Dragging[k] = false end
     end
 end)
 
--- ====================================================================
--- 🚀 LOGIQUE DES BOUTONS D'ACTION
--- ====================================================================
 local function UpdateButtonVisual(btn, active)
     TweenService:Create(btn, AnimFast, {
         BackgroundColor3 = active and Colors.AppleBlue or Colors.Surface,
@@ -406,78 +372,111 @@ FlyBtn.MouseButton1Click:Connect(function()
     UpdateButtonVisual(FlyBtn, State.Fly)
     local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if root and hum then
-        hum.PlatformStand = State.Fly
-        root.Anchored = State.Fly
-    end
+    if root and hum then hum.PlatformStand, root.Anchored = State.Fly, State.Fly end
 end)
-
 LockBtn.MouseButton1Click:Connect(function()
     State.ShiftLock = not State.ShiftLock
     if State.ShiftLock then State.Spin = false; UpdateButtonVisual(SpinBtn, false) end
     UpdateButtonVisual(LockBtn, State.ShiftLock)
 end)
-
 SpinBtn.MouseButton1Click:Connect(function()
     State.Spin = not State.Spin
     if State.Spin then State.ShiftLock = false; UpdateButtonVisual(LockBtn, false) end
     UpdateButtonVisual(SpinBtn, State.Spin)
 end)
-
 WalkBtn.MouseButton1Click:Connect(function()
     State.Walk = not State.Walk
     UpdateButtonVisual(WalkBtn, State.Walk)
-    if not State.Walk and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = 16 -- Reset par défaut
-    end
+    if not State.Walk and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then LocalPlayer.Character.Humanoid.WalkSpeed = 16 end
 end)
-
 JumpBtn.MouseButton1Click:Connect(function()
     State.Jump = not State.Jump
     UpdateButtonVisual(JumpBtn, State.Jump)
-    if not State.Jump and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-        LocalPlayer.Character.Humanoid.JumpPower = 50 -- Reset par défaut
-    end
+    if not State.Jump and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then LocalPlayer.Character.Humanoid.JumpPower = 50 end
 end)
 
 EspNamesBtn.MouseButton1Click:Connect(function() State.EspNames = not State.EspNames; UpdateButtonVisual(EspNamesBtn, State.EspNames) end)
 EspChamsBtn.MouseButton1Click:Connect(function() State.EspChams = not State.EspChams; UpdateButtonVisual(EspChamsBtn, State.EspChams) end)
+AimbotBtn.MouseButton1Click:Connect(function() State.Aimbot = not State.Aimbot; UpdateButtonVisual(AimbotBtn, State.Aimbot) end)
 
 -- ====================================================================
--- 🔄 MOTEUR DE RENDU PRINCIPAL (ESP + MOUVEMENTS)
+-- 🎯 FONCTION AIMBOT (ACQUISITION DE CIBLE)
+-- ====================================================================
+local function GetClosestTarget()
+    local target = nil
+    local shortestDist = math.huge
+    local mousePos = UserInputService:GetMouseLocation()
+
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("Head") and v.Character:FindFirstChild("Humanoid") and v.Character.Humanoid.Health > 0 then
+            -- Vérification d'équipe (Évite d'aimbot les alliés)
+            if v.Team ~= nil and v.Team == LocalPlayer.Team and not v.Neutral then continue end
+
+            local headPos = v.Character.Head.Position
+            local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(headPos)
+
+            if onScreen then
+                -- Anti-Mur : On lance un rayon pour vérifier si le mec est visible
+                local rayParams = RaycastParams.new()
+                rayParams.FilterDescendantsInstances = {LocalPlayer.Character, v.Character}
+                rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                rayParams.IgnoreWater = true
+
+                local rayResult = workspace:Raycast(workspace.CurrentCamera.CFrame.Position, headPos - workspace.CurrentCamera.CFrame.Position, rayParams)
+
+                if not rayResult then -- S'il est visible à 100%
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        target = v
+                    end
+                end
+            end
+        end
+    end
+    return target
+end
+
+-- ====================================================================
+-- 🔄 MOTEUR DE RENDU PRINCIPAL (ESP, MOUVEMENTS & AIMBOT)
 -- ====================================================================
 RunService:BindToRenderStep("ShadowRenderEngine", Enum.RenderPriority.Camera.Value - 1, function(deltaTime)
-    -- Effets Arc-en-Ciel Généraux
     local rainbowColor = Color3.fromHSV((tick() % 3) / 3, 1, 1)
     TitleGrad.Rotation = (TitleGrad.Rotation + 1.5) % 360
     OtherGrad.Rotation = (OtherGrad.Rotation + 1.5) % 360
 
-    -- Gestion du Joueur Local
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     local cam = workspace.CurrentCamera
 
-    -- Overrides Vitesse / Saut Constants (Anti-Cheat bypass)
-    if hum then
-        if State.Walk then hum.WalkSpeed = Config.WalkSpeed end
-        if State.Jump then 
-            hum.UseJumpPower = true 
-            hum.JumpPower = Config.JumpPower 
+    -- 🎯 LOGIQUE DE L'AIMBOT
+    if State.Aimbot and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        local targetPlayer = GetClosestTarget()
+        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("Head") then
+            local targetPosition = targetPlayer.Character.Head.Position
+            local aimCFrame = CFrame.lookAt(cam.CFrame.Position, targetPosition)
+            -- Lissage du verrouillage pour pas que ce soit "bizarre", mais suffisamment rapide pour One-Tap
+            cam.CFrame = cam.CFrame:Lerp(aimCFrame, Config.AimbotSmoothness)
         end
     end
 
+    -- OVERRIDES VITESSE/SAUT
+    if hum then
+        if State.Walk then hum.WalkSpeed = Config.WalkSpeed end
+        if State.Jump then hum.UseJumpPower = true; hum.JumpPower = Config.JumpPower end
+    end
+
+    -- LOGIQUE DE VOL & SPIN
     if root and cam then
         if State.Fly then
             local moveDir = Controls and Controls:GetMoveVector() or Vector3.zero
             local look = cam.CFrame.LookVector
             local right = cam.CFrame.RightVector
-            
             local direction = (look * -moveDir.Z) + (right * moveDir.X)
             if direction.Magnitude > 0 then direction = direction.Unit end
 
-            local displacement = direction * (Config.FlySpeed * deltaTime)
-            local newPos = root.Position + displacement
+            local newPos = root.Position + (direction * (Config.FlySpeed * deltaTime))
 
             if State.Spin then
                 State.SpinAngle = State.SpinAngle + (Config.SpinSpeed * deltaTime * 3)
@@ -502,58 +501,59 @@ RunService:BindToRenderStep("ShadowRenderEngine", Enum.RenderPriority.Camera.Val
         end
     end
 
-    -- =================================================================
-    -- 👁️ GESTION DU SYSTÈME ESP (NOMS & CHAMS) EN TEMPS RÉEL
-    -- =================================================================
+    -- 👁️ SYSTÈME ESP DYNAMIQUE (ROBUSTE POUR NOUVEAUX JOUEURS/RESPAWNS)
     for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+        if player ~= LocalPlayer and player.Character then
             local pChar = player.Character
+            local pHead = pChar:FindFirstChild("Head")
             local pHum = pChar:FindFirstChildOfClass("Humanoid")
             
-            -- LOGIQUE ESP NOMS RAINBOW
-            if State.EspNames then
-                if pHum then pHum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None end -- Cache le vrai nom
-                local espName = pChar.Head:FindFirstChild("ShadowESP_Name")
-                if not espName then
-                    espName = Instance.new("BillboardGui")
-                    espName.Name = "ShadowESP_Name"
-                    espName.Size = UDim2.new(0, 200, 0, 50)
-                    espName.StudsOffset = Vector3.new(0, 3, 0)
-                    espName.AlwaysOnTop = true
-                    
-                    local txt = Instance.new("TextLabel", espName)
-                    txt.Size = UDim2.new(1, 0, 1, 0)
-                    txt.BackgroundTransparency = 1
-                    txt.Font = Enum.Font.GothamBold
-                    txt.TextSize = 14
-                    txt.Text = player.DisplayName .. " (@" .. player.Name .. ")"
-                    txt.TextStrokeTransparency = 0 -- Contour noir pour bien lire
-                    
-                    espName.Parent = pChar.Head
+            if pHead and pHum and pHum.Health > 0 then
+                -- ESP NOMS RAINBOW
+                if State.EspNames then
+                    pHum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+                    local espName = pHead:FindFirstChild("ShadowESP_Name")
+                    if not espName then
+                        espName = Instance.new("BillboardGui")
+                        espName.Name = "ShadowESP_Name"
+                        espName.Size = UDim2.new(0, 200, 0, 50)
+                        espName.StudsOffset = Vector3.new(0, 3, 0)
+                        espName.AlwaysOnTop = true
+                        
+                        local txt = Instance.new("TextLabel", espName)
+                        txt.Size, txt.BackgroundTransparency = UDim2.new(1, 0, 1, 0), 1
+                        txt.Font, txt.TextSize = Enum.Font.GothamBold, 14
+                        txt.TextStrokeTransparency = 0
+                        txt.Text = player.DisplayName .. " (@" .. player.Name .. ")"
+                        espName.Parent = pHead
+                    end
+                    espName.TextLabel.TextColor3 = rainbowColor
+                else
+                    pHum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
+                    local espName = pHead:FindFirstChild("ShadowESP_Name")
+                    if espName then espName:Destroy() end
                 end
-                espName.TextLabel.TextColor3 = rainbowColor -- Applique l'arc-en-ciel
-            else
-                if pHum then pHum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer end -- Remet le vrai nom
-                local espName = pChar.Head:FindFirstChild("ShadowESP_Name")
-                if espName then espName:Destroy() end
-            end
 
-            -- LOGIQUE ESP CHAMS RAINBOW (X-RAY)
-            if State.EspChams then
-                local cham = pChar:FindFirstChild("ShadowESP_Cham")
-                if not cham then
-                    cham = Instance.new("Highlight")
-                    cham.Name = "ShadowESP_Cham"
-                    cham.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- Visible à travers TOUS les murs
-                    cham.FillTransparency = 0.5
-                    cham.OutlineTransparency = 0.1
-                    cham.Parent = pChar
+                -- ESP CHAMS RAINBOW (X-RAY)
+                if State.EspChams then
+                    local cham = pChar:FindFirstChild("ShadowESP_Cham")
+                    if not cham then
+                        cham = Instance.new("Highlight")
+                        cham.Name = "ShadowESP_Cham"
+                        cham.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        cham.FillTransparency = 0.5
+                        cham.OutlineTransparency = 0.1
+                        cham.Parent = pChar
+                    end
+                    cham.FillColor, cham.OutlineColor = rainbowColor, rainbowColor
+                else
+                    local cham = pChar:FindFirstChild("ShadowESP_Cham")
+                    if cham then cham:Destroy() end
                 end
-                cham.FillColor = rainbowColor
-                cham.OutlineColor = rainbowColor
             else
-                local cham = pChar:FindFirstChild("ShadowESP_Cham")
-                if cham then cham:Destroy() end
+                -- Nettoyage de sécurité si le joueur meurt
+                if pChar:FindFirstChild("ShadowESP_Cham") then pChar.ShadowESP_Cham:Destroy() end
+                if pHead and pHead:FindFirstChild("ShadowESP_Name") then pHead.ShadowESP_Name:Destroy() end
             end
         end
     end
