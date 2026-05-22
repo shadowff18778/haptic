@@ -1,5 +1,5 @@
 -- ====================================================================
--- 🍏 SHADOW VIP v12.0 : SLIDERS FIXÉS, DÉGRADÉ ANIMÉ & ANTI-KICK
+-- 🍏 SHADOW VIP v13.0 : ESP RAINBOW CHAMS, SPEED/JUMP & APPLE DESIGN
 -- ====================================================================
 
 local HttpService = game:GetService("HttpService")
@@ -25,18 +25,26 @@ local State = {
     Spin = false,
     ShiftLock = false,
     MenuOpen = false,
-    SpinAngle = 0
+    SpinAngle = 0,
+    Walk = false,
+    Jump = false,
+    EspNames = false,
+    EspChams = false
 }
 
 local DefaultConfig = {
     FlySpeed = 100,
-    SpinSpeed = 500
+    SpinSpeed = 500,
+    WalkSpeed = 16,
+    JumpPower = 50
 }
 
 local Config = {
     FlySpeed = DefaultConfig.FlySpeed,
     SpinSpeed = DefaultConfig.SpinSpeed,
-    MaxSpeed = 5000
+    WalkSpeed = DefaultConfig.WalkSpeed,
+    JumpPower = DefaultConfig.JumpPower,
+    MaxSpeed = 9999 -- Maximum étendu à 9999 comme demandé
 }
 
 local Controls
@@ -45,7 +53,7 @@ pcall(function()
     Controls = PlayerModule:GetControls()
 end)
 
--- Moteurs d'animations (Style iOS très fluide)
+-- Moteurs d'animations (Style iOS)
 local AnimBouncy = TweenInfo.new(0.5, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out)
 local AnimSmooth = TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 local AnimFast = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -86,13 +94,8 @@ GearStroke.Color = Color3.fromRGB(255, 255, 255)
 GearStroke.Thickness = 1
 GearStroke.Transparency = 0.8
 
--- Effets Hover Bouton Principal
-GearBtn.MouseEnter:Connect(function()
-    TweenService:Create(GearBtn, AnimFast, {Size = UDim2.new(0, 54, 0, 54), Position = UDim2.new(0.5, -27, 0.85, -2), BackgroundTransparency = 0.15}):Play()
-end)
-GearBtn.MouseLeave:Connect(function()
-    TweenService:Create(GearBtn, AnimFast, {Size = UDim2.new(0, 50, 0, 50), Position = UDim2.new(0.5, -25, 0.85, 0), BackgroundTransparency = 0.3}):Play()
-end)
+GearBtn.MouseEnter:Connect(function() TweenService:Create(GearBtn, AnimFast, {Size = UDim2.new(0, 54, 0, 54), Position = UDim2.new(0.5, -27, 0.85, -2), BackgroundTransparency = 0.15}):Play() end)
+GearBtn.MouseLeave:Connect(function() TweenService:Create(GearBtn, AnimFast, {Size = UDim2.new(0, 50, 0, 50), Position = UDim2.new(0.5, -25, 0.85, 0), BackgroundTransparency = 0.3}):Play() end)
 
 -- Panneau Central (Glassmorphism)
 local SettingsPanel = Instance.new("CanvasGroup")
@@ -110,33 +113,28 @@ PanelStroke.Color = Color3.fromRGB(255, 255, 255)
 PanelStroke.Thickness = 1
 PanelStroke.Transparency = 0.8
 
--- ====================================================================
--- 📂 PAGE 1 : CHEATS & UTILITIES
--- ====================================================================
-local CheatPage = Instance.new("Frame")
-CheatPage.Size = UDim2.new(1, 0, 1, 0)
-CheatPage.BackgroundTransparency = 1
-CheatPage.Parent = SettingsPanel
+-- FONCTIONS UTILITAIRES UI
+local function CreateTitle(parent, text)
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1, 0, 0, 40)
+    Title.BackgroundTransparency = 1
+    Title.Text = text
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.Font = Enum.Font.GothamBlack
+    Title.TextSize = 15
+    Title.Parent = parent
+    
+    local Gradient = Instance.new("UIGradient", Title)
+    Gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Colors.AppleRed),
+        ColorSequenceKeypoint.new(1, Colors.AppleBlue)
+    })
+    return Title, Gradient
+end
 
--- TITRE AVEC DÉGRADÉ ANIMÉ ROUGE & BLEU
-local SettingsTitle = Instance.new("TextLabel")
-SettingsTitle.Size = UDim2.new(1, 0, 0, 40)
-SettingsTitle.BackgroundTransparency = 1
-SettingsTitle.Text = "S H A D O W"
-SettingsTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-SettingsTitle.Font = Enum.Font.GothamBlack
-SettingsTitle.TextSize = 15
-SettingsTitle.Parent = CheatPage
-
-local TitleGradient = Instance.new("UIGradient", SettingsTitle)
-TitleGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Colors.AppleRed),
-    ColorSequenceKeypoint.new(1, Colors.AppleBlue)
-})
-
-local function CreateToggleButton(text, posX, posY)
+local function CreateToggleButton(parent, text, posX, posY, sizeX)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 76, 0, 36)
+    btn.Size = UDim2.new(0, sizeX or 76, 0, 36)
     btn.Position = UDim2.new(0, posX, 0, posY)
     btn.BackgroundColor3 = Colors.Surface
     btn.BackgroundTransparency = 0.4
@@ -145,16 +143,12 @@ local function CreateToggleButton(text, posX, posY)
     btn.Font = Enum.Font.GothamMedium
     btn.TextSize = 11
     btn.AutoButtonColor = false
-    btn.Parent = CheatPage
+    btn.Parent = parent
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 12)
     return btn
 end
 
-local FlyBtn = CreateToggleButton("FLY ✈️", 16, 45)
-local LockBtn = CreateToggleButton("LOCK 🔒", 102, 45)
-local SpinBtn = CreateToggleButton("SPIN 🌪️", 188, 45)
-
-local function CreateSlider(titleText, posY, defaultVal)
+local function CreateSlider(parent, titleText, posY, defaultVal)
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, -32, 0, 15)
     label.Position = UDim2.new(0, 16, 0, posY)
@@ -164,7 +158,7 @@ local function CreateSlider(titleText, posY, defaultVal)
     label.Font = Enum.Font.GothamMedium
     label.TextSize = 11
     label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = CheatPage
+    label.Parent = parent
 
     local bg = Instance.new("TextButton")
     bg.Size = UDim2.new(1, -32, 0, 10)
@@ -172,7 +166,7 @@ local function CreateSlider(titleText, posY, defaultVal)
     bg.BackgroundColor3 = Colors.Surface
     bg.Text = ""
     bg.AutoButtonColor = false
-    bg.Parent = CheatPage
+    bg.Parent = parent
     Instance.new("UICorner", bg).CornerRadius = UDim.new(1, 0)
 
     local fill = Instance.new("Frame")
@@ -181,37 +175,68 @@ local function CreateSlider(titleText, posY, defaultVal)
     fill.Parent = bg
     Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
 
-    return bg, fill, label
+    local resetBtn = Instance.new("TextButton")
+    resetBtn.Size = UDim2.new(0, 45, 0, 15)
+    resetBtn.Position = UDim2.new(1, -45, 0, 0)
+    resetBtn.BackgroundTransparency = 1
+    resetBtn.Text = "RESET ↺"
+    resetBtn.TextColor3 = Colors.AppleBlue
+    resetBtn.Font = Enum.Font.GothamBold
+    resetBtn.TextSize = 10
+    resetBtn.Parent = label
+    
+    resetBtn.MouseEnter:Connect(function() TweenService:Create(resetBtn, AnimFast, {TextColor3 = Colors.AppleText}):Play() end)
+    resetBtn.MouseLeave:Connect(function() TweenService:Create(resetBtn, AnimFast, {TextColor3 = Colors.AppleBlue}):Play() end)
+
+    return bg, fill, label, resetBtn
 end
 
-local FlySliderBg, FlySliderFill, FlyLabel = CreateSlider("Vitesse de Vol", 95, Config.FlySpeed)
-local SpinSliderBg, SpinSliderFill, SpinLabel = CreateSlider("Vitesse de Spin", 145, Config.SpinSpeed)
+local function CreateBackButton(parent)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 30, 0, 30)
+    btn.Position = UDim2.new(0, 12, 0, 5)
+    btn.BackgroundTransparency = 1
+    btn.Text = "⬅" 
+    btn.TextSize = 16
+    btn.TextColor3 = Colors.AppleBlue
+    btn.Font = Enum.Font.GothamBold
+    btn.Parent = parent
+    return btn
+end
 
--- 🔄 BOUTON RESET VITESSE DE VOL 🔄
-local ResetFlyBtn = Instance.new("TextButton")
-ResetFlyBtn.Size = UDim2.new(0, 45, 0, 15)
-ResetFlyBtn.Position = UDim2.new(1, -45, 0, 0)
-ResetFlyBtn.BackgroundTransparency = 1
-ResetFlyBtn.Text = "RESET ↺"
-ResetFlyBtn.TextColor3 = Colors.AppleBlue
-ResetFlyBtn.Font = Enum.Font.GothamBold
-ResetFlyBtn.TextSize = 10
-ResetFlyBtn.Parent = FlyLabel
+-- ====================================================================
+-- 📂 PAGE 1 : CHEATS PRINCIPAUX
+-- ====================================================================
+local CheatPage = Instance.new("Frame")
+CheatPage.Size = UDim2.new(1, 0, 1, 0)
+CheatPage.BackgroundTransparency = 1
+CheatPage.Parent = SettingsPanel
 
-ResetFlyBtn.MouseEnter:Connect(function() TweenService:Create(ResetFlyBtn, AnimFast, {TextColor3 = Colors.AppleText}):Play() end)
-ResetFlyBtn.MouseLeave:Connect(function() TweenService:Create(ResetFlyBtn, AnimFast, {TextColor3 = Colors.AppleBlue}):Play() end)
-ResetFlyBtn.MouseButton1Click:Connect(function()
+local _, TitleGrad = CreateTitle(CheatPage, "S H A D O W")
+local FlyBtn = CreateToggleButton(CheatPage, "FLY ✈️", 16, 45)
+local LockBtn = CreateToggleButton(CheatPage, "LOCK 🔒", 102, 45)
+local SpinBtn = CreateToggleButton(CheatPage, "SPIN 🌪️", 188, 45)
+
+local FlySliderBg, FlySliderFill, FlyLabel, FlyReset = CreateSlider(CheatPage, "Vitesse de Vol", 95, Config.FlySpeed)
+local SpinSliderBg, SpinSliderFill, SpinLabel, SpinReset = CreateSlider(CheatPage, "Vitesse de Spin", 145, Config.SpinSpeed)
+
+FlyReset.MouseButton1Click:Connect(function()
     Config.FlySpeed = DefaultConfig.FlySpeed
     FlyLabel.Text = "Vitesse de Vol : " .. Config.FlySpeed
     TweenService:Create(FlySliderFill, AnimBouncy, {Size = UDim2.new(Config.FlySpeed / Config.MaxSpeed, 0, 1, 0)}):Play()
 end)
+SpinReset.MouseButton1Click:Connect(function()
+    Config.SpinSpeed = DefaultConfig.SpinSpeed
+    SpinLabel.Text = "Vitesse de Spin : " .. Config.SpinSpeed
+    TweenService:Create(SpinSliderFill, AnimBouncy, {Size = UDim2.new(Config.SpinSpeed / Config.MaxSpeed, 0, 1, 0)}):Play()
+end)
 
-local ProfileNavBtn = CreateToggleButton("👤 Profil", 16, 205)
-ProfileNavBtn.Size = UDim2.new(1, -32, 0, 36)
-ProfileNavBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+-- Nouveaux boutons de Navigation Divisés (Bottom)
+local ProfileNavBtn = CreateToggleButton(CheatPage, "👤 Profil", 16, 205, 118)
+local OtherNavBtn = CreateToggleButton(CheatPage, "⚙️ Autre", 146, 205, 118)
 
 -- ====================================================================
--- 👤 PAGE 2 : PROFIL (CACHÉE)
+-- 👤 PAGE 2 : PROFIL (CACHÉE À GAUCHE)
 -- ====================================================================
 local ProfilePage = Instance.new("Frame")
 ProfilePage.Size = UDim2.new(1, 0, 1, 0)
@@ -219,24 +244,8 @@ ProfilePage.Position = UDim2.new(1, 0, 0, 0)
 ProfilePage.BackgroundTransparency = 1
 ProfilePage.Parent = SettingsPanel
 
-local ProfileTitle = Instance.new("TextLabel")
-ProfileTitle.Size = UDim2.new(1, 0, 0, 40)
-ProfileTitle.BackgroundTransparency = 1
-ProfileTitle.Text = "PROFIL"
-ProfileTitle.TextColor3 = Colors.AppleText
-ProfileTitle.Font = Enum.Font.GothamBold
-ProfileTitle.TextSize = 14
-ProfileTitle.Parent = ProfilePage
-
-local BackBtn = Instance.new("TextButton")
-BackBtn.Size = UDim2.new(0, 30, 0, 30)
-BackBtn.Position = UDim2.new(0, 12, 0, 5)
-BackBtn.BackgroundTransparency = 1
-BackBtn.Text = "⬅" 
-BackBtn.TextSize = 16
-BackBtn.TextColor3 = Colors.AppleBlue
-BackBtn.Font = Enum.Font.GothamBold
-BackBtn.Parent = ProfilePage
+CreateTitle(ProfilePage, "PROFIL")
+local ProfileBackBtn = CreateBackButton(ProfilePage)
 
 local AvatarImg = Instance.new("ImageLabel")
 AvatarImg.Size = UDim2.new(0, 70, 0, 70)
@@ -275,12 +284,43 @@ CreateInfoLabel("🆔 " .. LocalPlayer.UserId, 3)
 CreateInfoLabel("📆 " .. LocalPlayer.AccountAge .. " jours", 4)
 
 -- ====================================================================
--- ⚙️ LOGIQUE INTERFACE & ANIMATIONS
+-- ⚙️ PAGE 3 : AUTRES MODULES (CACHÉE À DROITE)
+-- ====================================================================
+local OtherPage = Instance.new("Frame")
+OtherPage.Size = UDim2.new(1, 0, 1, 0)
+OtherPage.Position = UDim2.new(-1, 0, 0, 0)
+OtherPage.BackgroundTransparency = 1
+OtherPage.Parent = SettingsPanel
+
+local _, OtherGrad = CreateTitle(OtherPage, "A U T R E S")
+local OtherBackBtn = CreateBackButton(OtherPage)
+
+local WalkBtn = CreateToggleButton(OtherPage, "SPEED 🏃", 16, 45, 118)
+local JumpBtn = CreateToggleButton(OtherPage, "JUMP ⬆️", 146, 45, 118)
+
+local WalkSliderBg, WalkSliderFill, WalkLabel, WalkReset = CreateSlider(OtherPage, "Vitesse", 85, Config.WalkSpeed)
+local JumpSliderBg, JumpSliderFill, JumpLabel, JumpReset = CreateSlider(OtherPage, "Saut", 125, Config.JumpPower)
+
+WalkReset.MouseButton1Click:Connect(function()
+    Config.WalkSpeed = DefaultConfig.WalkSpeed
+    WalkLabel.Text = "Vitesse : " .. Config.WalkSpeed
+    TweenService:Create(WalkSliderFill, AnimBouncy, {Size = UDim2.new(Config.WalkSpeed / Config.MaxSpeed, 0, 1, 0)}):Play()
+end)
+JumpReset.MouseButton1Click:Connect(function()
+    Config.JumpPower = DefaultConfig.JumpPower
+    JumpLabel.Text = "Saut : " .. Config.JumpPower
+    TweenService:Create(JumpSliderFill, AnimBouncy, {Size = UDim2.new(Config.JumpPower / Config.MaxSpeed, 0, 1, 0)}):Play()
+end)
+
+local EspNamesBtn = CreateToggleButton(OtherPage, "ESP NOMS 🌈", 16, 175, 118)
+local EspChamsBtn = CreateToggleButton(OtherPage, "ESP CHAMS 🌈", 146, 175, 118)
+
+-- ====================================================================
+-- 🎚️ LOGIQUE DE NAVIGATION & INTERFACE
 -- ====================================================================
 GearBtn.MouseButton1Click:Connect(function()
     State.MenuOpen = not State.MenuOpen
     TweenService:Create(GearBtn, AnimBouncy, {Rotation = State.MenuOpen and 90 or 0}):Play()
-
     if State.MenuOpen then
         SettingsPanel.Visible = true
         TweenService:Create(SettingsPanel, AnimBouncy, {Position = UDim2.new(0.5, -140, 0.85, -280), GroupTransparency = 0}):Play()
@@ -290,66 +330,70 @@ GearBtn.MouseButton1Click:Connect(function()
     end
 end)
 
+-- Navigation Profil (Vers la droite)
 ProfileNavBtn.MouseButton1Click:Connect(function()
     TweenService:Create(CheatPage, AnimBouncy, {Position = UDim2.new(-1, 0, 0, 0)}):Play()
     TweenService:Create(ProfilePage, AnimBouncy, {Position = UDim2.new(0, 0, 0, 0)}):Play()
 end)
-
-BackBtn.MouseButton1Click:Connect(function()
+ProfileBackBtn.MouseButton1Click:Connect(function()
     TweenService:Create(CheatPage, AnimBouncy, {Position = UDim2.new(0, 0, 0, 0)}):Play()
     TweenService:Create(ProfilePage, AnimBouncy, {Position = UDim2.new(1, 0, 0, 0)}):Play()
 end)
 
--- ====================================================================
--- 🎚️ NOUVELLE LOGIQUE DES SLIDERS (100% FIABLE)
--- ====================================================================
-local DraggingFly, DraggingSpin = false, false
+-- Navigation Autre (Vers la gauche)
+OtherNavBtn.MouseButton1Click:Connect(function()
+    TweenService:Create(CheatPage, AnimBouncy, {Position = UDim2.new(1, 0, 0, 0)}):Play()
+    TweenService:Create(OtherPage, AnimBouncy, {Position = UDim2.new(0, 0, 0, 0)}):Play()
+end)
+OtherBackBtn.MouseButton1Click:Connect(function()
+    TweenService:Create(CheatPage, AnimBouncy, {Position = UDim2.new(0, 0, 0, 0)}):Play()
+    TweenService:Create(OtherPage, AnimBouncy, {Position = UDim2.new(-1, 0, 0, 0)}):Play()
+end)
+
+-- GESTION UNIVERSELLE DES SLIDERS
+local Dragging = {Fly = false, Spin = false, Walk = false, Jump = false}
 
 local function UpdateSlider(bg, fill, label, prefix, configKey)
-    -- Sécurité pour éviter les erreurs de division par zéro
     if bg.AbsoluteSize.X == 0 then return end 
-    
-    -- Utilisation de la position globale de la souris pour une fiabilité absolue
     local relativeX = math.clamp(Mouse.X - bg.AbsolutePosition.X, 0, bg.AbsoluteSize.X)
     local percent = relativeX / bg.AbsoluteSize.X
-    
     TweenService:Create(fill, AnimFast, {Size = UDim2.new(percent, 0, 1, 0)}):Play()
     Config[configKey] = math.max(1, math.floor(percent * Config.MaxSpeed))
     label.Text = prefix .. " : " .. Config[configKey]
 end
 
-FlySliderBg.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        DraggingFly = true
-        UpdateSlider(FlySliderBg, FlySliderFill, FlyLabel, "Vitesse de Vol", "FlySpeed")
+local function BindSlider(bg, fill, label, prefix, dragKey, configKey)
+    bg.InputBegan:Connect(function(i)
+        if i.UserInputType.Name:match("MouseButton1") or i.UserInputType.Name:match("Touch") then
+            Dragging[dragKey] = true
+            UpdateSlider(bg, fill, label, prefix, configKey)
+        end
+    end)
+end
+
+BindSlider(FlySliderBg, FlySliderFill, FlyLabel, "Vitesse de Vol", "Fly", "FlySpeed")
+BindSlider(SpinSliderBg, SpinSliderFill, SpinLabel, "Vitesse de Spin", "Spin", "SpinSpeed")
+BindSlider(WalkSliderBg, WalkSliderFill, WalkLabel, "Vitesse", "Walk", "WalkSpeed")
+BindSlider(JumpSliderBg, JumpSliderFill, JumpLabel, "Saut", "Jump", "JumpPower")
+
+UserInputService.InputChanged:Connect(function(i)
+    if i.UserInputType.Name:match("MouseMovement") or i.UserInputType.Name:match("Touch") then
+        if Dragging.Fly then UpdateSlider(FlySliderBg, FlySliderFill, FlyLabel, "Vitesse de Vol", "FlySpeed") end
+        if Dragging.Spin then UpdateSlider(SpinSliderBg, SpinSliderFill, SpinLabel, "Vitesse de Spin", "SpinSpeed") end
+        if Dragging.Walk then UpdateSlider(WalkSliderBg, WalkSliderFill, WalkLabel, "Vitesse", "WalkSpeed") end
+        if Dragging.Jump then UpdateSlider(JumpSliderBg, JumpSliderFill, JumpLabel, "Saut", "JumpPower") end
     end
 end)
 
-SpinSliderBg.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        DraggingSpin = true
-        UpdateSlider(SpinSliderBg, SpinSliderFill, SpinLabel, "Vitesse de Spin", "SpinSpeed")
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        if DraggingFly then UpdateSlider(FlySliderBg, FlySliderFill, FlyLabel, "Vitesse de Vol", "FlySpeed") end
-        if DraggingSpin then UpdateSlider(SpinSliderBg, SpinSliderFill, SpinLabel, "Vitesse de Spin", "SpinSpeed") end
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        DraggingFly = false
-        DraggingSpin = false
+UserInputService.InputEnded:Connect(function(i)
+    if i.UserInputType.Name:match("MouseButton1") or i.UserInputType.Name:match("Touch") then
+        for k, v in pairs(Dragging) do Dragging[k] = false end
     end
 end)
 
 -- ====================================================================
--- 🚀 MOTEUR DE VOL "ANCHORED" AVEC BYPASS CAMÉRA JITTER
+-- 🚀 LOGIQUE DES BOUTONS D'ACTION
 -- ====================================================================
-
 local function UpdateButtonVisual(btn, active)
     TweenService:Create(btn, AnimFast, {
         BackgroundColor3 = active and Colors.AppleBlue or Colors.Surface,
@@ -360,19 +404,11 @@ end
 FlyBtn.MouseButton1Click:Connect(function()
     State.Fly = not State.Fly
     UpdateButtonVisual(FlyBtn, State.Fly)
-
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    
+    local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
     if root and hum then
-        if State.Fly then
-            hum.PlatformStand = true
-            root.Anchored = true -- Sécurité 100% Anti-Kick (Aucune Vélocité réelle)
-        else
-            hum.PlatformStand = false
-            root.Anchored = false
-        end
+        hum.PlatformStand = State.Fly
+        root.Anchored = State.Fly
     end
 end)
 
@@ -388,52 +424,137 @@ SpinBtn.MouseButton1Click:Connect(function()
     UpdateButtonVisual(SpinBtn, State.Spin)
 end)
 
--- BOUCLE DE RENDU PRINCIPALE (Mouvement Physique + Animation Dégradé)
-RunService:BindToRenderStep("ShadowRenderEngine", Enum.RenderPriority.Camera.Value - 1, function(deltaTime)
-    -- Animation fluide du dégradé du titre
-    TitleGradient.Rotation = (TitleGradient.Rotation + 1.5) % 360
+WalkBtn.MouseButton1Click:Connect(function()
+    State.Walk = not State.Walk
+    UpdateButtonVisual(WalkBtn, State.Walk)
+    if not State.Walk and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        LocalPlayer.Character.Humanoid.WalkSpeed = 16 -- Reset par défaut
+    end
+end)
 
-    -- Logique du personnage
+JumpBtn.MouseButton1Click:Connect(function()
+    State.Jump = not State.Jump
+    UpdateButtonVisual(JumpBtn, State.Jump)
+    if not State.Jump and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        LocalPlayer.Character.Humanoid.JumpPower = 50 -- Reset par défaut
+    end
+end)
+
+EspNamesBtn.MouseButton1Click:Connect(function() State.EspNames = not State.EspNames; UpdateButtonVisual(EspNamesBtn, State.EspNames) end)
+EspChamsBtn.MouseButton1Click:Connect(function() State.EspChams = not State.EspChams; UpdateButtonVisual(EspChamsBtn, State.EspChams) end)
+
+-- ====================================================================
+-- 🔄 MOTEUR DE RENDU PRINCIPAL (ESP + MOUVEMENTS)
+-- ====================================================================
+RunService:BindToRenderStep("ShadowRenderEngine", Enum.RenderPriority.Camera.Value - 1, function(deltaTime)
+    -- Effets Arc-en-Ciel Généraux
+    local rainbowColor = Color3.fromHSV((tick() % 3) / 3, 1, 1)
+    TitleGrad.Rotation = (TitleGrad.Rotation + 1.5) % 360
+    OtherGrad.Rotation = (OtherGrad.Rotation + 1.5) % 360
+
+    -- Gestion du Joueur Local
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     local cam = workspace.CurrentCamera
 
-    if not root or not cam then return end
-
-    if State.Fly then
-        local moveDir = Controls and Controls:GetMoveVector() or Vector3.zero
-        local look = cam.CFrame.LookVector
-        local right = cam.CFrame.RightVector
-        
-        local direction = (look * -moveDir.Z) + (right * moveDir.X)
-        if direction.Magnitude > 0 then
-            direction = direction.Unit
+    -- Overrides Vitesse / Saut Constants (Anti-Cheat bypass)
+    if hum then
+        if State.Walk then hum.WalkSpeed = Config.WalkSpeed end
+        if State.Jump then 
+            hum.UseJumpPower = true 
+            hum.JumpPower = Config.JumpPower 
         end
+    end
 
-        local displacement = direction * (Config.FlySpeed * deltaTime)
-        local newPos = root.Position + displacement
-
-        if State.Spin then
-            State.SpinAngle = State.SpinAngle + (Config.SpinSpeed * deltaTime * 3)
-            root.CFrame = CFrame.new(newPos) * CFrame.Angles(0, math.rad(State.SpinAngle), 0)
-        elseif State.ShiftLock then
-            root.CFrame = CFrame.lookAt(newPos, Vector3.new(newPos.X + look.X, newPos.Y, newPos.Z + look.Z))
-        else
-            root.CFrame = CFrame.new(newPos) * cam.CFrame.Rotation
-        end
-
-    elseif not State.Fly then
-        if State.Spin then
-            if hum then hum.AutoRotate = false end
-            State.SpinAngle = State.SpinAngle + (Config.SpinSpeed * deltaTime * 2)
-            root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(Config.SpinSpeed * deltaTime), 0)
-        elseif State.ShiftLock then
-            if hum then hum.AutoRotate = false end
+    if root and cam then
+        if State.Fly then
+            local moveDir = Controls and Controls:GetMoveVector() or Vector3.zero
             local look = cam.CFrame.LookVector
-            root.CFrame = CFrame.lookAt(root.Position, Vector3.new(root.Position.X + look.X, root.Position.Y, root.Position.Z + look.Z))
+            local right = cam.CFrame.RightVector
+            
+            local direction = (look * -moveDir.Z) + (right * moveDir.X)
+            if direction.Magnitude > 0 then direction = direction.Unit end
+
+            local displacement = direction * (Config.FlySpeed * deltaTime)
+            local newPos = root.Position + displacement
+
+            if State.Spin then
+                State.SpinAngle = State.SpinAngle + (Config.SpinSpeed * deltaTime * 3)
+                root.CFrame = CFrame.new(newPos) * CFrame.Angles(0, math.rad(State.SpinAngle), 0)
+            elseif State.ShiftLock then
+                root.CFrame = CFrame.lookAt(newPos, Vector3.new(newPos.X + look.X, newPos.Y, newPos.Z + look.Z))
+            else
+                root.CFrame = CFrame.new(newPos) * cam.CFrame.Rotation
+            end
         else
-            if hum then hum.AutoRotate = true end
+            if State.Spin then
+                if hum then hum.AutoRotate = false end
+                State.SpinAngle = State.SpinAngle + (Config.SpinSpeed * deltaTime * 2)
+                root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(Config.SpinSpeed * deltaTime), 0)
+            elseif State.ShiftLock then
+                if hum then hum.AutoRotate = false end
+                local look = cam.CFrame.LookVector
+                root.CFrame = CFrame.lookAt(root.Position, Vector3.new(root.Position.X + look.X, root.Position.Y, root.Position.Z + look.Z))
+            else
+                if hum then hum.AutoRotate = true end
+            end
+        end
+    end
+
+    -- =================================================================
+    -- 👁️ GESTION DU SYSTÈME ESP (NOMS & CHAMS) EN TEMPS RÉEL
+    -- =================================================================
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            local pChar = player.Character
+            local pHum = pChar:FindFirstChildOfClass("Humanoid")
+            
+            -- LOGIQUE ESP NOMS RAINBOW
+            if State.EspNames then
+                if pHum then pHum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None end -- Cache le vrai nom
+                local espName = pChar.Head:FindFirstChild("ShadowESP_Name")
+                if not espName then
+                    espName = Instance.new("BillboardGui")
+                    espName.Name = "ShadowESP_Name"
+                    espName.Size = UDim2.new(0, 200, 0, 50)
+                    espName.StudsOffset = Vector3.new(0, 3, 0)
+                    espName.AlwaysOnTop = true
+                    
+                    local txt = Instance.new("TextLabel", espName)
+                    txt.Size = UDim2.new(1, 0, 1, 0)
+                    txt.BackgroundTransparency = 1
+                    txt.Font = Enum.Font.GothamBold
+                    txt.TextSize = 14
+                    txt.Text = player.DisplayName .. " (@" .. player.Name .. ")"
+                    txt.TextStrokeTransparency = 0 -- Contour noir pour bien lire
+                    
+                    espName.Parent = pChar.Head
+                end
+                espName.TextLabel.TextColor3 = rainbowColor -- Applique l'arc-en-ciel
+            else
+                if pHum then pHum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer end -- Remet le vrai nom
+                local espName = pChar.Head:FindFirstChild("ShadowESP_Name")
+                if espName then espName:Destroy() end
+            end
+
+            -- LOGIQUE ESP CHAMS RAINBOW (X-RAY)
+            if State.EspChams then
+                local cham = pChar:FindFirstChild("ShadowESP_Cham")
+                if not cham then
+                    cham = Instance.new("Highlight")
+                    cham.Name = "ShadowESP_Cham"
+                    cham.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- Visible à travers TOUS les murs
+                    cham.FillTransparency = 0.5
+                    cham.OutlineTransparency = 0.1
+                    cham.Parent = pChar
+                end
+                cham.FillColor = rainbowColor
+                cham.OutlineColor = rainbowColor
+            else
+                local cham = pChar:FindFirstChild("ShadowESP_Cham")
+                if cham then cham:Destroy() end
+            end
         end
     end
 end)
